@@ -1,0 +1,6 @@
+{
+  "name": "Activity Logger",
+  "description": "Aplicación rápida y ligera para registrar actividades diarias con captura rápida, almacenamiento local JSON, búsqueda avanzada y exportación formateada.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
