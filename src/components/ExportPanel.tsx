@@ -7,6 +7,7 @@ interface ExportPanelProps {
     specificDate?: string;
     startDate?: string;
     endDate?: string;
+    userInitials?: string;
   }) => Promise<{
     filename: string;
     filePath: string;
@@ -17,6 +18,7 @@ interface ExportPanelProps {
 
 export default function ExportPanel({ onExport }: ExportPanelProps) {
   const [exportType, setExportType] = useState<'all' | 'day' | 'range'>('day');
+  const [userInitials, setUserInitials] = useState(() => localStorage.getItem('activity_logger_initials') || '');
   
   // Set default specificDate to today
   const [specificDate, setSpecificDate] = useState(() => {
@@ -182,6 +184,23 @@ export default function ExportPanel({ onExport }: ExportPanelProps) {
               </div>
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1.5">
+              Filtrar por Iniciales
+            </label>
+            <input
+              type="text"
+              id="export-user-initials"
+              value={userInitials}
+              onChange={(e) => setUserInitials(e.target.value.toUpperCase().slice(0, 4))}
+              placeholder="Ej: MR"
+              className="w-full bg-[#0B0C0E] border border-[#2A2D35] text-slate-200 font-mono text-sm rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase"
+            />
+            <p className="mt-1 text-[10px] text-slate-500">
+              Deja vacío para exportar todas o ingresa iniciales para filtrar. Carga por defecto las guardadas localmente.
+            </p>
+          </div>
 
           <div className="pt-3">
             <button

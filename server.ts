@@ -2,15 +2,10 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { fileURLToPath } from "url";
 import { Task, AppConfig } from "./src/types";
 
-// Setup __dirname for ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 
@@ -124,7 +119,7 @@ app.get("/api/tasks", (req, res) => {
 
 // Create task
 app.post("/api/tasks", (req, res) => {
-  const { date, status, type, category, description, duration, rawText } = req.body;
+  const { date, status, type, category, description, duration, rawText, userInitials: bodyInitials } = req.body;
 
   if (!date || !type || !category || !description || !duration) {
     res.status(400).json({ error: "Faltan campos obligatorios" });
@@ -133,6 +128,7 @@ app.post("/api/tasks", (req, res) => {
 
   const tasks = readTasks();
   const config = loadConfig();
+  const userInitials = (bodyInitials || config.userInitials || "MR").trim().toUpperCase().slice(0, 4);
 
   // Create date components for ID: DDMMAAAA
   // date is YYYY-MM-DD
@@ -147,7 +143,7 @@ app.post("/api/tasks", (req, res) => {
   const ddmmaaaa = `${day}${month}${year}`;
 
   // Find consecutive daily number
-  const prefix = `T-${ddmmaaaa}-${config.userInitials}`;
+  const prefix = `T-${ddmmaaaa}-${userInitials}`;
   
   // Find all tasks for this exact day and user initials prefix to calculate consecutive
   const dailyTasks = tasks.filter(t => t.id.startsWith(prefix));
@@ -157,7 +153,7 @@ app.post("/api/tasks", (req, res) => {
     const seqNumbers = dailyTasks.map(t => {
       const parts = t.id.split("-");
       const lastPart = parts[parts.length - 1]; // II## (e.g. MR01)
-      const numberStr = lastPart.slice(config.userInitials.length); // Extract numeric part
+      const numberStr = lastPart.slice(userInitials.length); // Extract numeric part
       const parsed = parseInt(numberStr, 10);
       return isNaN(parsed) ? 0 : parsed;
     });
@@ -175,7 +171,6 @@ app.post("/api/tasks", (req, res) => {
     id: generatedId,
     date,
     timeCreated,
-    status: status || "Reportado",
     type,
     category,
     description,
@@ -232,7 +227,7 @@ app.delete("/api/tasks/:id", (req, res) => {
 
 // Export tasks API
 app.post("/api/export", (req, res) => {
-  const { type, specificDate, startDate, endDate } = req.body;
+  const { type, specificDate, startDate, endDate, userInitials } = req.body;
   const tasks = readTasks();
   const config = loadConfig();
 
@@ -249,6 +244,19 @@ app.post("/api/export", (req, res) => {
   } else if (type === "range" && startDate && endDate) {
     filteredTasks = filteredTasks.filter(t => t.date >= startDate && t.date <= endDate);
   } // else: export all
+
+  if (userInitials) {
+    const upperInitials = userInitials.trim().toUpperCase();
+    filteredTasks = filteredTasks.filter(t => {
+      // ID format is T-DDMMAAAA-II##
+      const parts = t.id.split("-");
+      if (parts.length >= 3) {
+        const lastPart = parts[2]; // e.g. MR01
+        return lastPart.toUpperCase().startsWith(upperInitials);
+      }
+      return false;
+    });
+  }
 
   // Map translations for full names in export as requested
   const typeLabels: Record<string, string> = {
@@ -287,7 +295,6 @@ app.post("/api/export", (req, res) => {
     const cLabel = categoryLabels[t.category] || t.category;
 
     exportText += `[ID]: ${t.id}\n`;
-    exportText += `Estatus: ${t.status}\n`;
     exportText += `Tipo: ${tLabel}\n`;
     exportText += `Categoría: ${cLabel}\n`;
     exportText += `Descripción: ${t.description}\n`;

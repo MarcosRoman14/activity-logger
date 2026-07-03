@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Task, TaskStatus } from '../types';
-import { TYPES_MAP, CATEGORIES_MAP, STATUS_OPTIONS, formatDate, getTypeLabel, getCategoryLabel } from '../utils';
-import { Search, Filter, Calendar, Grid, Layers, Trash2, Edit3, CheckCircle, Clock, AlertCircle, Sparkles, HelpCircle, Eye } from 'lucide-react';
+import { Task } from '../types';
+import { TYPES_MAP, CATEGORIES_MAP, formatDate, getTypeLabel, getCategoryLabel } from '../utils';
+import { Search, Filter, Calendar, Grid, Layers, Trash2, Edit3, Clock, AlertCircle, HelpCircle } from 'lucide-react';
 
 interface TaskTableProps {
   tasks: Task[];
@@ -12,7 +12,6 @@ interface TaskTableProps {
 
 export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditClick }: TaskTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilterType, setDateFilterType] = useState<'all' | 'today' | 'specific'>('all');
   
   const [specificDate, setSpecificDate] = useState(() => {
@@ -59,11 +58,6 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
       });
     }
 
-    // Filter by status
-    if (statusFilter !== 'all') {
-      result = result.filter(t => t.status === statusFilter);
-    }
-
     // Filter by date
     if (dateFilterType === 'today') {
       const todayStr = new Date().toISOString().split('T')[0];
@@ -79,7 +73,7 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
     });
 
     return result;
-  }, [tasks, searchTerm, statusFilter, dateFilterType, specificDate]);
+  }, [tasks, searchTerm, dateFilterType, specificDate]);
 
   // Grouped Tasks
   const groupedTasks = useMemo(() => {
@@ -101,50 +95,21 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
   const stats = useMemo(() => {
     const total = filteredTasks.length;
     let totalHours = 0;
-    const statusCounts: Record<TaskStatus, number> = {
-      'Reportado': 0,
-      'En proceso Análisis': 0,
-      'En proceso DEV': 0,
-      'Cerrado': 0,
-    };
 
     filteredTasks.forEach(t => {
       totalHours += parseHours(t.duration);
-      if (statusCounts[t.status] !== undefined) {
-        statusCounts[t.status]++;
-      }
     });
 
     return {
       total,
       totalHours: Number(totalHours.toFixed(1)),
-      statusCounts,
     };
   }, [filteredTasks]);
-
-  const handleStatusChange = (id: string, newStatus: TaskStatus) => {
-    onUpdateTask(id, { status: newStatus });
-  };
-
-  const getStatusBadgeClass = (status: TaskStatus) => {
-    switch (status) {
-      case 'Reportado':
-        return 'bg-blue-500/10 text-blue-400 border border-blue-500/20';
-      case 'En proceso Análisis':
-        return 'bg-amber-500/10 text-amber-400 border border-amber-500/20';
-      case 'En proceso DEV':
-        return 'bg-purple-500/10 text-purple-400 border border-purple-500/20';
-      case 'Cerrado':
-        return 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
-      default:
-        return 'bg-[#0D0F12] text-slate-400 border border-[#2A2D35]';
-    }
-  };
 
   return (
     <div id="tasks-table-module" className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="bg-[#16181D] border border-[#2A2D35] p-3.5 rounded-lg shadow-sm flex items-center justify-between">
           <div>
             <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Actividades</span>
@@ -162,26 +127,6 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
           </div>
           <div className="w-9 h-9 bg-[#0D0F12] rounded-lg flex items-center justify-center border border-[#1E2024] text-slate-400">
             <Clock className="w-5 h-5" />
-          </div>
-        </div>
-
-        <div className="bg-[#16181D] border border-[#2A2D35] p-3.5 rounded-lg shadow-sm flex items-center justify-between col-span-1">
-          <div>
-            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">En Desarrollo</span>
-            <div className="text-xl font-bold text-purple-400 font-display mt-0.5">{stats.statusCounts['En proceso DEV']}</div>
-          </div>
-          <div className="w-9 h-9 bg-purple-500/10 rounded-lg flex items-center justify-center border border-purple-500/20 text-purple-400">
-            <Sparkles className="w-4 h-4" />
-          </div>
-        </div>
-
-        <div className="bg-[#16181D] border border-[#2A2D35] p-3.5 rounded-lg shadow-sm flex items-center justify-between col-span-1">
-          <div>
-            <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">Cerradas</span>
-            <div className="text-xl font-bold text-emerald-400 font-display mt-0.5">{stats.statusCounts['Cerrado']}</div>
-          </div>
-          <div className="w-9 h-9 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20 text-emerald-400">
-            <CheckCircle className="w-4 h-4" />
           </div>
         </div>
       </div>
@@ -237,25 +182,7 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
         </div>
 
         {/* Extended Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-[#2A2D35]">
-          {/* Status Filter */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
-              <Filter className="w-3 h-3" /> Estado
-            </label>
-            <select
-              id="filter-status"
-              className="w-full bg-[#0B0C0E] border border-[#2A2D35] text-slate-200 text-xs rounded-lg p-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all" className="bg-[#16181D]">Todos los Estados</option>
-              {STATUS_OPTIONS.map(o => (
-                <option key={o} value={o} className="bg-[#16181D]">{o}</option>
-              ))}
-            </select>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-[#2A2D35]">
           {/* Date Range Type Filter */}
           <div>
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
@@ -290,20 +217,24 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
           </div>
 
           {/* Specific Date input */}
-          {dateFilterType === 'specific' && (
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">
-                Elegir Día Específico
-              </label>
-              <input
-                type="date"
-                id="filter-specific-date"
-                value={specificDate}
-                onChange={(e) => setSpecificDate(e.target.value)}
-                className="w-full bg-[#0B0C0E] border border-[#2A2D35] text-slate-200 text-xs rounded-lg p-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-          )}
+          <div>
+            {dateFilterType === 'specific' ? (
+              <>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">
+                  Elegir Día Específico
+                </label>
+                <input
+                  type="date"
+                  id="filter-specific-date"
+                  value={specificDate}
+                  onChange={(e) => setSpecificDate(e.target.value)}
+                  className="w-full bg-[#0B0C0E] border border-[#2A2D35] text-slate-200 text-xs rounded-lg p-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </>
+            ) : (
+              <div className="hidden md:block" />
+            )}
+          </div>
         </div>
 
         {/* Codes Help Panel */}
@@ -369,7 +300,6 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
                       <tr>
                         <th className="px-4 py-2 w-32 font-mono">ID</th>
                         <th className="px-4 py-2 w-20">Hora</th>
-                        <th className="px-4 py-2 w-36">Estado</th>
                         <th className="px-4 py-2 w-28">Tipo</th>
                         <th className="px-4 py-2 w-32">Categoría</th>
                         <th className="px-4 py-2 w-20">Tiempo</th>
@@ -382,17 +312,6 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
                       <tr key={task.id} className="hover:bg-blue-500/5 transition-colors border-b border-[#1E2024]/40">
                         <td className="px-4 py-2.5 font-mono font-bold text-blue-400 select-all">{task.id}</td>
                         <td className="px-4 py-2.5 text-slate-500 font-mono">{task.timeCreated}</td>
-                        <td className="px-4 py-2.5">
-                          <select
-                            value={task.status}
-                            onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                            className={`px-2 py-0.5 text-[11px] font-semibold border rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${getStatusBadgeClass(task.status)}`}
-                          >
-                            {STATUS_OPTIONS.map(s => (
-                              <option key={s} value={s} className="bg-[#16181D] text-slate-200">{s}</option>
-                            ))}
-                          </select>
-                        </td>
                         <td className="px-4 py-2.5">
                           <span className="font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono" title={getTypeLabel(task.type)}>
                             {task.type}
@@ -445,7 +364,6 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
                   <th className="px-4 py-3 w-32 font-mono">ID</th>
                   <th className="px-4 py-3 w-24">Fecha</th>
                   <th className="px-4 py-3 w-20">Hora</th>
-                  <th className="px-4 py-3 w-36">Estado</th>
                   <th className="px-4 py-3 w-28">Tipo</th>
                   <th className="px-4 py-3 w-32">Categoría</th>
                   <th className="px-4 py-3 w-20">Tiempo</th>
@@ -459,17 +377,6 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
                     <td className="px-4 py-2.5 font-mono font-bold text-blue-400 select-all">{task.id}</td>
                     <td className="px-4 py-2.5 text-slate-400 font-mono font-semibold">{formatDate(task.date)}</td>
                     <td className="px-4 py-2.5 text-slate-500 font-mono">{task.timeCreated}</td>
-                    <td className="px-4 py-2.5">
-                      <select
-                        value={task.status}
-                        onChange={(e) => handleStatusChange(task.id, e.target.value as TaskStatus)}
-                        className={`px-2 py-0.5 text-[11px] font-semibold border rounded-md cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500/40 ${getStatusBadgeClass(task.status)}`}
-                      >
-                        {STATUS_OPTIONS.map(s => (
-                          <option key={s} value={s} className="bg-[#16181D] text-slate-200">{s}</option>
-                        ))}
-                      </select>
-                    </td>
                     <td className="px-4 py-2.5">
                       <span className="font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono" title={getTypeLabel(task.type)}>
                         {task.type}

@@ -8,7 +8,7 @@ interface ConfigurationProps {
 }
 
 export default function Configuration({ config, onSaveConfig }: ConfigurationProps) {
-  const [initials, setInitials] = useState(config.userInitials);
+  const [initials, setInitials] = useState(() => localStorage.getItem('activity_logger_initials') || config.userInitials);
   const [dataDir, setDataDir] = useState(config.dataDir);
   const [exportDir, setExportDir] = useState(config.exportDir);
   const [hotkey, setHotkey] = useState(config.hotkey);
@@ -17,7 +17,7 @@ export default function Configuration({ config, onSaveConfig }: ConfigurationPro
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
-    setInitials(config.userInitials);
+    setInitials(localStorage.getItem('activity_logger_initials') || config.userInitials);
     setDataDir(config.dataDir);
     setExportDir(config.exportDir);
     setHotkey(config.hotkey);

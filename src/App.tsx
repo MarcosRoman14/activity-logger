@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Task, AppConfig, TaskStatus } from './types';
+import { Task, AppConfig } from './types';
 import QuickCapture from './components/QuickCapture';
 import TaskTable from './components/TaskTable';
 import ExportPanel from './components/ExportPanel';
@@ -37,6 +37,10 @@ export default function App() {
     hotkey: 'Alt+T',
   });
 
+  const [userInitials, setUserInitials] = useState<string>(() => {
+    return localStorage.getItem('activity_logger_initials') || 'MR';
+  });
+
   // Task lists
   const [tasks, setTasks] = useState<Task[]>([]);
   const [backupInfo, setBackupInfo] = useState<{
@@ -69,6 +73,12 @@ export default function App() {
       const configData = await configRes.json();
       setConfig(configData);
 
+      const localInit = localStorage.getItem('activity_logger_initials');
+      if (!localInit) {
+        localStorage.setItem('activity_logger_initials', configData.userInitials || 'MR');
+        setUserInitials(configData.userInitials || 'MR');
+      }
+
       // Load tasks
       const tasksRes = await fetch('/api/tasks');
       if (!tasksRes.ok) throw new Error('Error al cargar las actividades');
@@ -95,6 +105,9 @@ export default function App() {
 
   // Save new configuration to backend
   const handleSaveConfig = async (newConfig: AppConfig) => {
+    localStorage.setItem('activity_logger_initials', newConfig.userInitials);
+    setUserInitials(newConfig.userInitials);
+
     const res = await fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -115,17 +128,19 @@ export default function App() {
     const parsed = parseRawTask(rawText);
     if (!parsed.isValid) return;
 
-    // Default to today's date (YYYY-MM-DD)
+    // Default to today's date (YYYY-MM-DD) or use parsed date from input
     const todayStr = new Date().toISOString().split('T')[0];
+    const taskDate = parsed.date || todayStr;
 
     const payload = {
-      date: todayStr,
+      date: taskDate,
       status: 'Reportado',
       type: parsed.type || 'Sys',
       category: parsed.category || 'Otr',
       description: parsed.description || rawText,
       duration: parsed.duration || '1 hr',
       rawText: rawText,
+      userInitials: userInitials,
     };
 
     try {
@@ -257,7 +272,6 @@ export default function App() {
       category: editingTask.category,
       duration: editingTask.duration,
       description: editingTask.description,
-      status: editingTask.status,
       date: editingTask.date,
     });
     setEditingTask(null);
@@ -330,10 +344,10 @@ export default function App() {
               {/* Profile info */}
               <div className="bg-slate-800/60 rounded-lg p-3 border border-slate-700/50">
                 <span className="text-[10px] text-slate-400 uppercase font-mono tracking-wider block font-bold">Usuario Configurado</span>
-                <span className="text-sm font-bold text-slate-100 font-display mt-0.5 block">Iniciales: {config.userInitials}</span>
+                <span className="text-sm font-bold text-slate-100 font-display mt-0.5 block">Iniciales: {userInitials}</span>
                 <span className="text-[10px] text-slate-400 block mt-1">Consectivo de hoy:</span>
                 <span className="font-mono text-xs text-blue-400 font-semibold mt-0.5 block">
-                  T-{(new Date().toISOString().split('T')[0]).split('-').reverse().join('')}-{config.userInitials}01
+                  T-{(new Date().toISOString().split('T')[0]).split('-').reverse().join('')}-{userInitials}01
                 </span>
               </div>
 
@@ -453,7 +467,7 @@ export default function App() {
                         </span>
                         <QuickCapture 
                           onSave={handleCreateTask} 
-                          userInitials={config.userInitials}
+                          userInitials={userInitials}
                         />
                       </div>
                     </div>
@@ -570,7 +584,7 @@ export default function App() {
             <QuickCapture 
               onSave={handleCreateTask}
               onClose={() => setIsQuickCaptureOpen(false)}
-              userInitials={config.userInitials}
+              userInitials={userInitials}
             />
           </div>
         </div>
@@ -658,36 +672,18 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
-                    Tiempo
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
-                    value={editingTask.duration}
-                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, duration: e.target.value } : null)}
-                    placeholder="Ej: 5 hrs o 2 hrs"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
-                    Estatus
-                  </label>
-                  <select
-                    className="w-full bg-slate-50 border border-slate-300 text-slate-800 text-xs rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={editingTask.status}
-                    onChange={(e) => setEditingTask(prev => prev ? { ...prev, status: e.target.value as TaskStatus } : null)}
-                  >
-                    <option value="Reportado">Reportado</option>
-                    <option value="En proceso Análisis">En proceso Análisis</option>
-                    <option value="En proceso DEV">En proceso DEV</option>
-                    <option value="Cerrado">Cerrado</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">
+                  Tiempo
+                </label>
+                <input
+                  type="text"
+                  className="w-full bg-slate-50 border border-slate-300 text-slate-900 text-xs rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white"
+                  value={editingTask.duration}
+                  onChange={(e) => setEditingTask(prev => prev ? { ...prev, duration: e.target.value } : null)}
+                  placeholder="Ej: 5 hrs o 2 hrs"
+                  required
+                />
               </div>
 
               <div>

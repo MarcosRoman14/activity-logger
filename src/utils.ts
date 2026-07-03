@@ -33,7 +33,43 @@ export interface ParsedFields {
   category: string;
   description: string;
   duration: string;
+  date?: string;
+  rawDateStr?: string;
   isValid: boolean;
+}
+
+export function parseDateStringToYYYYMMDD(str: string): string | null {
+  if (!str) return null;
+  const trimmed = str.trim();
+  
+  // Try YYYY-MM-DD
+  const yyyymmdd = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (yyyymmdd) {
+    const y = yyyymmdd[1];
+    const m = yyyymmdd[2].padStart(2, '0');
+    const d = yyyymmdd[3].padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  // Try DD/MM/YYYY or DD-MM-YYYY
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (ddmmyyyy) {
+    const d = ddmmyyyy[1].padStart(2, '0');
+    const m = ddmmyyyy[2].padStart(2, '0');
+    const y = ddmmyyyy[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  // Try DDMMAAAA (8 digits)
+  const ddmmaaaa = trimmed.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (ddmmaaaa) {
+    const d = ddmmaaaa[1];
+    const m = ddmmaaaa[2];
+    const y = ddmmaaaa[3];
+    return `${y}-${m}-${d}`;
+  }
+
+  return null;
 }
 
 export function parseRawTask(text: string): ParsedFields {
@@ -41,27 +77,67 @@ export function parseRawTask(text: string): ParsedFields {
   let category = '';
   let description = '';
   let duration = '';
+  let date = '';
+  let rawDateStr = '';
 
-  // Match:
-  // T:[value] up to next tag or comma or end
-  // C:[value] up to next tag or comma or end
-  // D:[value] up to next tag or comma or end
-  // TM:[value] up to next tag or comma or end
-  
-  const regexT = /[Tt]:\s*([^,]*?)(?=\s*,?\s*[CcDd(TM)(tm)]:|$)/;
-  const regexC = /[Cc]:\s*([^,]*?)(?=\s*,?\s*[TtDd(TM)(tm)]:|$)/;
-  const regexD = /[Dd]:\s*([^,]*?)(?=\s*,?\s*[TtCc(TM)(tm)]:|$)/;
-  const regexTM = /(?:[Tt][Mm]):\s*([^,]*?)(?=\s*,?\s*[TtCcDd]:|$)/;
+  const tagRegex = /(?:^|[\s,]+)(t|c|d|tm|f|fecha):/gi;
+  let match;
+  const tags: { tag: string; start: number; valueStart: number }[] = [];
 
-  const matchT = text.match(regexT);
-  const matchC = text.match(regexC);
-  const matchD = text.match(regexD);
-  const matchTM = text.match(regexTM);
+  while ((match = tagRegex.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const tagName = match[1].toLowerCase();
+    const start = match.index;
+    const valueStart = start + fullMatch.length;
+    tags.push({ tag: tagName, start, valueStart });
+  }
 
-  if (matchT) type = matchT[1].trim();
-  if (matchC) category = matchC[1].trim();
-  if (matchD) description = matchD[1].trim();
-  if (matchTM) duration = matchTM[1].trim();
+  // Sort tags by start index
+  tags.sort((a, b) => a.start - b.start);
+
+  for (let i = 0; i < tags.length; i++) {
+    const current = tags[i];
+    const next = tags[i + 1];
+    const end = next ? next.start : text.length;
+    let val = text.substring(current.valueStart, end).trim();
+    
+    // Clean trailing commas, semicolons, and spaces
+    val = val.replace(/^[,\s;]+|[,\s;]+$/g, '');
+
+    switch (current.tag) {
+      case 't':
+        type = val;
+        break;
+      case 'c':
+        category = val;
+        break;
+      case 'd':
+        description = val;
+        break;
+      case 'tm':
+        duration = val;
+        break;
+      case 'f':
+      case 'fecha':
+        rawDateStr = val;
+        break;
+    }
+  }
+
+  // If date was not parsed from F:, try fallback at start of string (e.g. DD/MM/YYYY or YYYY-MM-DD)
+  if (!rawDateStr) {
+    const startMatch = text.trim().match(/^\[?(\d{1,2}[-/]\d{1,2}[-/]\d{4}|\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{8})\]?/);
+    if (startMatch) {
+      rawDateStr = startMatch[1].trim();
+    }
+  }
+
+  if (rawDateStr) {
+    const formatted = parseDateStringToYYYYMMDD(rawDateStr);
+    if (formatted) {
+      date = formatted;
+    }
+  }
 
   // Simple validations: at least type or category or description
   const isValid = !!(type || category || description || duration);
@@ -71,6 +147,8 @@ export function parseRawTask(text: string): ParsedFields {
     category,
     description,
     duration,
+    date: date || undefined,
+    rawDateStr: rawDateStr || undefined,
     isValid,
   };
 }

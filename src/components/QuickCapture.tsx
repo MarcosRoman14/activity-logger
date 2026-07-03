@@ -10,7 +10,7 @@ interface QuickCaptureProps {
 
 export default function QuickCapture({ onSave, onClose, userInitials }: QuickCaptureProps) {
   const [inputText, setInputText] = useState('');
-  const [showHelp, setShowHelp] = useState(false);
+  const [showHelp, setShowHelp] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus input on mount
@@ -91,6 +91,17 @@ export default function QuickCapture({ onSave, onClose, userInitials }: QuickCap
               <CornerDownLeft className="w-4 h-4" />
             </div>
           </div>
+          
+          {/* Always Visible Format Example */}
+          <div className="mt-2 p-2.5 bg-[#0D0F12]/80 border border-[#2A2D35]/50 rounded-lg text-xs font-mono text-slate-300 flex flex-col gap-1 shadow-inner">
+            <div className="flex items-center gap-1.5 text-blue-400 font-bold text-[10px] uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 text-blue-400" /> Ejemplo de Captura Completa (con Fecha):
+            </div>
+            <div className="text-slate-200 select-all break-all leading-relaxed bg-[#16181D] p-1.5 rounded border border-[#1E2024]/60 font-medium">
+              f:19062026, t:com, c:dfunc, tm:1hr, d:apoyo revisión de evento de solo lift; productos sin planograma
+            </div>
+          </div>
+
           <p className="mt-1.5 text-xs text-slate-400 font-sans flex items-center gap-1.5">
             <Keyboard className="w-3.5 h-3.5 text-slate-500" />
             Escribe en formato libre. Presiona <span className="font-mono bg-[#0D0F12] text-slate-300 px-1.5 py-0.5 border border-[#1E2024] rounded text-[10px] font-bold">Enter</span> para registrar y ocultar de inmediato.
@@ -110,7 +121,7 @@ export default function QuickCapture({ onSave, onClose, userInitials }: QuickCap
             </span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs font-mono">
             <div className="p-2 bg-[#16181D] rounded border border-[#2A2D35]">
               <div className="text-slate-500 text-[10px] uppercase font-bold">Tipo (T:)</div>
               <div className={`mt-0.5 font-semibold ${parsed.type ? 'text-slate-200' : 'text-slate-600 italic'}`}>
@@ -131,11 +142,21 @@ export default function QuickCapture({ onSave, onClose, userInitials }: QuickCap
               )}
             </div>
 
-            <div className="p-2 bg-[#16181D] rounded border border-[#2A2D35] col-span-2 md:col-span-1">
+            <div className="p-2 bg-[#16181D] rounded border border-[#2A2D35]">
               <div className="text-slate-500 text-[10px] uppercase font-bold">Tiempo (TM:)</div>
               <div className={`mt-0.5 font-semibold ${parsed.duration ? 'text-slate-200' : 'text-slate-600 italic'}`}>
                 {parsed.duration || 'Falta'}
               </div>
+            </div>
+
+            <div className="p-2 bg-[#16181D] rounded border border-[#2A2D35]">
+              <div className="text-slate-500 text-[10px] uppercase font-bold">Fecha (F:)</div>
+              <div className={`mt-0.5 font-semibold ${parsed.date ? 'text-slate-200' : 'text-slate-500 italic'}`}>
+                {parsed.date || 'Hoy (Por defecto)'}
+              </div>
+              {parsed.rawDateStr && parsed.rawDateStr !== parsed.date && (
+                <div className="text-[10px] text-slate-400 truncate mt-0.5">{parsed.rawDateStr}</div>
+              )}
             </div>
 
             <div className="p-2 bg-[#16181D] rounded border border-[#2A2D35] col-span-2 md:col-span-1">
@@ -148,7 +169,7 @@ export default function QuickCapture({ onSave, onClose, userInitials }: QuickCap
         </div>
 
         {/* Dynamic Visual Help Section */}
-        {(showHelp || !inputText) && (
+        {showHelp && (
           <div className="bg-blue-500/5 rounded-lg p-4 border border-blue-500/15 text-xs text-slate-300 space-y-3 transition-all duration-300">
             <div className="font-semibold flex items-center gap-1.5 font-display text-blue-300">
               <FileCheck className="w-4 h-4 text-blue-400" /> Referencia rápida de Códigos de Captura
