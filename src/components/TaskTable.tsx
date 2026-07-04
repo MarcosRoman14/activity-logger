@@ -13,6 +13,7 @@ interface TaskTableProps {
 export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditClick }: TaskTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilterType, setDateFilterType] = useState<'all' | 'today' | 'specific'>('all');
+  const [initialsFilter, setInitialsFilter] = useState('all');
   
   const [specificDate, setSpecificDate] = useState(() => {
     const today = new Date();
@@ -21,6 +22,30 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
 
   const [groupByDate, setGroupByDate] = useState(false);
   const [showCodeHelp, setShowCodeHelp] = useState(false);
+
+  // Get unique initials from tasks
+  const uniqueInitials = useMemo(() => {
+    const initialsSet = new Set<string>();
+    tasks.forEach(t => {
+      let initials = '';
+      if (t.userInitials) {
+        initials = t.userInitials;
+      } else {
+        const parts = t.id.split("-");
+        if (parts.length >= 3) {
+          const lastPart = parts[2]; // e.g. "MR01"
+          const match = lastPart.match(/^([A-Za-z]+)/);
+          if (match) {
+            initials = match[1];
+          }
+        }
+      }
+      if (initials) {
+        initialsSet.add(initials.toUpperCase());
+      }
+    });
+    return Array.from(initialsSet).sort();
+  }, [tasks]);
 
   // Helper to extract numeric hours from strings like "5 hrs", "2.5 h", "30 min", "2"
   const parseHours = (durationStr: string): number => {
@@ -66,6 +91,27 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
       result = result.filter(t => t.date === specificDate);
     }
 
+    // Filter by initials
+    if (initialsFilter !== 'all') {
+      const upperFilter = initialsFilter.toUpperCase();
+      result = result.filter(t => {
+        let initials = '';
+        if (t.userInitials) {
+          initials = t.userInitials;
+        } else {
+          const parts = t.id.split("-");
+          if (parts.length >= 3) {
+            const lastPart = parts[2];
+            const match = lastPart.match(/^([A-Za-z]+)/);
+            if (match) {
+              initials = match[1];
+            }
+          }
+        }
+        return initials.toUpperCase() === upperFilter;
+      });
+    }
+
     // Sort chronologically by date descending, then timeCreated descending
     result.sort((a, b) => {
       if (a.date !== b.date) return b.date.localeCompare(a.date);
@@ -73,7 +119,7 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
     });
 
     return result;
-  }, [tasks, searchTerm, dateFilterType, specificDate]);
+  }, [tasks, searchTerm, dateFilterType, specificDate, initialsFilter]);
 
   // Grouped Tasks
   const groupedTasks = useMemo(() => {
@@ -182,7 +228,7 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
         </div>
 
         {/* Extended Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-[#2A2D35]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-[#2A2D35]">
           {/* Date Range Type Filter */}
           <div>
             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
@@ -234,6 +280,26 @@ export default function TaskTable({ tasks, onUpdateTask, onDeleteTask, onEditCli
             ) : (
               <div className="hidden md:block" />
             )}
+          </div>
+
+          {/* Initials Filter */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Filter className="w-3 h-3" /> Filtrar por Inicial
+            </label>
+            <select
+              id="filter-initials"
+              value={initialsFilter}
+              onChange={(e) => setInitialsFilter(e.target.value)}
+              className="w-full bg-[#0B0C0E] border border-[#2A2D35] text-slate-200 text-xs rounded-lg p-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            >
+              <option value="all" className="bg-[#16181D]">Todas las iniciales</option>
+              {uniqueInitials.map(init => (
+                <option key={init} value={init} className="bg-[#16181D]">
+                  {init}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

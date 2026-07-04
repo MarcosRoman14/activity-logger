@@ -48,7 +48,7 @@ export default function ExportPanel({ onExport }: ExportPanelProps) {
   const [copied, setCopied] = useState(false);
 
   const handleExport = async () => {
-    setLoading(false);
+    setLoading(true);
     setExportedResult(null);
     setCopied(false);
 
@@ -58,10 +58,13 @@ export default function ExportPanel({ onExport }: ExportPanelProps) {
         specificDate,
         startDate,
         endDate,
+        userInitials,
       });
       setExportedResult(res);
     } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
   };
 

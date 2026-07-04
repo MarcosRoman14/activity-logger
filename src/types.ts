@@ -7,6 +7,7 @@ export interface Task {
   description: string;
   duration: string;    // e.g. '2 hrs'
   rawText?: string;    // original captured line
+  userInitials?: string;
 }
 
 export interface AppConfig {

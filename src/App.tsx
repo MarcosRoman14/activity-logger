@@ -212,6 +212,7 @@ export default function App() {
     specificDate?: string;
     startDate?: string;
     endDate?: string;
+    userInitials?: string;
   }) => {
     const res = await fetch('/api/export', {
       method: 'POST',

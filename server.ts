@@ -278,10 +278,23 @@ app.post("/api/export", (req, res) => {
     Otr: "Otro"
   };
 
+  const initialsToFullName: Record<string, string> = {
+    MR: "Marcos Robles",
+    AA: "Andrés Alarcón",
+    JP: "Juan Pérez",
+    MG: "María Gómez",
+    LS: "Luis Sánchez",
+    FC: "Francisco Castro",
+    EC: "Eduardo Cruz",
+    GL: "Gabriela López",
+    DR: "Daniel Ramírez",
+    KV: "Karla Vargas",
+  };
+
   // Build the export output string exactly as specified:
   /*
   [ID]: T-27042026-MR01
-  Estatus: Reportado
+  Usuario: Marcos Robles (MR)
   Tipo: Comercial
   Categoría: Requerimiento de negocio
   Descripción: Apoyo a equipo de FARMACIA para carga de "REBAJADO DE DESCUENTOS"
@@ -294,7 +307,26 @@ app.post("/api/export", (req, res) => {
     const tLabel = typeLabels[t.type] || t.type;
     const cLabel = categoryLabels[t.category] || t.category;
 
+    let initials = "";
+    if (t.userInitials) {
+      initials = t.userInitials;
+    } else {
+      const parts = t.id.split("-");
+      if (parts.length >= 3) {
+        const lastPart = parts[2]; // e.g. "MR01"
+        const match = lastPart.match(/^([A-Za-z]+)/);
+        if (match) {
+          initials = match[1];
+        }
+      }
+    }
+    const upperInitials = initials.toUpperCase();
+    const fullName = initialsToFullName[upperInitials] || initials;
+
     exportText += `[ID]: ${t.id}\n`;
+    if (initials) {
+      exportText += `Usuario: ${fullName}\n`;
+    }
     exportText += `Tipo: ${tLabel}\n`;
     exportText += `Categoría: ${cLabel}\n`;
     exportText += `Descripción: ${t.description}\n`;
