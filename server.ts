@@ -3,6 +3,13 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { Task, AppConfig } from "./src/types";
+import {
+  isFirestoreReady,
+  getFirestoreTasks,
+  saveFirestoreTask,
+  deleteFirestoreTask,
+  migrateToFirestoreIfNeeded
+} from "./firestore-db";
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -113,12 +120,27 @@ app.post("/api/config", (req, res) => {
 });
 
 // Get all tasks
-app.get("/api/tasks", (req, res) => {
-  res.json(readTasks());
+app.get("/api/tasks", async (req, res) => {
+  try {
+    const localTasks = readTasks();
+    if (await isFirestoreReady()) {
+      // Migrate local tasks if Firestore is empty but we have local tasks
+      await migrateToFirestoreIfNeeded(localTasks);
+      const fsTasks = await getFirestoreTasks();
+      if (fsTasks !== null) {
+        res.json(fsTasks);
+        return;
+      }
+    }
+    res.json(localTasks);
+  } catch (error) {
+    console.error("Error in GET /api/tasks:", error);
+    res.json(readTasks());
+  }
 });
 
 // Create task
-app.post("/api/tasks", (req, res) => {
+app.post("/api/tasks", async (req, res) => {
   const { date, status, type, category, description, duration, rawText, userInitials: bodyInitials } = req.body;
 
   if (!date || !type || !category || !description || !duration) {
@@ -126,7 +148,25 @@ app.post("/api/tasks", (req, res) => {
     return;
   }
 
-  const tasks = readTasks();
+  let tasks: Task[] = [];
+  let usingFirestore = false;
+
+  try {
+    if (await isFirestoreReady()) {
+      const fsTasks = await getFirestoreTasks();
+      if (fsTasks !== null) {
+        tasks = fsTasks;
+        usingFirestore = true;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load tasks from Firestore for sequence calculation, using local fallback:", err);
+  }
+
+  if (!usingFirestore) {
+    tasks = readTasks();
+  }
+
   const config = loadConfig();
   const userInitials = (bodyInitials || config.userInitials || "MR").trim().toUpperCase().slice(0, 4);
 
@@ -176,18 +216,56 @@ app.post("/api/tasks", (req, res) => {
     description,
     duration,
     rawText,
+    userInitials,
   };
 
-  tasks.push(newTask);
-  writeTasks(tasks);
+  if (usingFirestore) {
+    const success = await saveFirestoreTask(newTask);
+    if (!success) {
+      // Fallback
+      const localTasks = readTasks();
+      localTasks.push(newTask);
+      writeTasks(localTasks);
+    }
+  } else {
+    tasks.push(newTask);
+    writeTasks(tasks);
+  }
 
   res.json({ message: "Actividad guardada con éxito", task: newTask });
 });
 
 // Update task
-app.put("/api/tasks/:id", (req, res) => {
+app.put("/api/tasks/:id", async (req, res) => {
   const { id } = req.params;
   const updatedData = req.body as Partial<Task>;
+
+  let usingFirestore = false;
+  try {
+    if (await isFirestoreReady()) {
+      const fsTasks = await getFirestoreTasks();
+      if (fsTasks !== null) {
+        usingFirestore = true;
+        const index = fsTasks.findIndex(t => t.id === id);
+        if (index === -1) {
+          res.status(404).json({ error: "Actividad no encontrada" });
+          return;
+        }
+        const updatedTask = {
+          ...fsTasks[index],
+          ...updatedData,
+          id: fsTasks[index].id, // Maintain ID
+        };
+        const success = await saveFirestoreTask(updatedTask);
+        if (success) {
+          res.json({ message: "Actividad actualizada con éxito", task: updatedTask });
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not update task on Firestore, trying local fallback:", err);
+  }
 
   const tasks = readTasks();
   const index = tasks.findIndex(t => t.id === id);
@@ -209,8 +287,30 @@ app.put("/api/tasks/:id", (req, res) => {
 });
 
 // Delete task
-app.delete("/api/tasks/:id", (req, res) => {
+app.delete("/api/tasks/:id", async (req, res) => {
   const { id } = req.params;
+
+  let usingFirestore = false;
+  try {
+    if (await isFirestoreReady()) {
+      const fsTasks = await getFirestoreTasks();
+      if (fsTasks !== null) {
+        usingFirestore = true;
+        const exists = fsTasks.some(t => t.id === id);
+        if (!exists) {
+          res.status(404).json({ error: "Actividad no encontrada" });
+          return;
+        }
+        const success = await deleteFirestoreTask(id);
+        if (success) {
+          res.json({ message: "Actividad eliminada con éxito" });
+          return;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Could not delete task from Firestore, trying local fallback:", err);
+  }
 
   let tasks = readTasks();
   const initialLength = tasks.length;
@@ -226,11 +326,28 @@ app.delete("/api/tasks/:id", (req, res) => {
 });
 
 // Export tasks API
-app.post("/api/export", (req, res) => {
+app.post("/api/export", async (req, res) => {
   const { type, specificDate, startDate, endDate, userInitials } = req.body;
-  const tasks = readTasks();
-  const config = loadConfig();
+  
+  let tasks: Task[] = [];
+  let usingFirestore = false;
+  try {
+    if (await isFirestoreReady()) {
+      const fsTasks = await getFirestoreTasks();
+      if (fsTasks !== null) {
+        tasks = fsTasks;
+        usingFirestore = true;
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load tasks from Firestore for export, trying local fallback:", err);
+  }
 
+  if (!usingFirestore) {
+    tasks = readTasks();
+  }
+
+  const config = loadConfig();
   let filteredTasks = [...tasks];
 
   // Sorting tasks chronologically (by date then timeCreated)
@@ -279,16 +396,7 @@ app.post("/api/export", (req, res) => {
   };
 
   const initialsToFullName: Record<string, string> = {
-    MR: "Marcos Robles",
-    AA: "Andrés Alarcón",
-    JP: "Juan Pérez",
-    MG: "María Gómez",
-    LS: "Luis Sánchez",
-    FC: "Francisco Castro",
-    EC: "Eduardo Cruz",
-    GL: "Gabriela López",
-    DR: "Daniel Ramírez",
-    KV: "Karla Vargas",
+    XX: "Usuario" 
   };
 
   // Build the export output string exactly as specified:

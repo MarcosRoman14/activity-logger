@@ -6,6 +6,13 @@ import ExportPanel from './components/ExportPanel';
 import Configuration from './components/Configuration';
 import { parseRawTask } from './utils';
 import { 
+  isFirebaseConfigured,
+  getClientTasks,
+  saveClientTask,
+  deleteClientTask,
+  migrateLocalToFirestore
+} from './firebase';
+import { 
   Terminal, 
   Settings, 
   FolderLock, 
@@ -79,11 +86,34 @@ export default function App() {
         setUserInitials(configData.userInitials || 'MR');
       }
 
-      // Load tasks
-      const tasksRes = await fetch('/api/tasks');
-      if (!tasksRes.ok) throw new Error('Error al cargar las actividades');
-      const tasksData = await tasksRes.json();
-      setTasks(tasksData);
+      // Check if client-side Firebase is active
+      if (isFirebaseConfigured()) {
+        const clientTasks = await getClientTasks();
+        if (clientTasks !== null) {
+          // Attempt to load local tasks and migrate them if Firestore is empty
+          const tasksRes = await fetch('/api/tasks');
+          if (tasksRes.ok) {
+            const localTasks = await tasksRes.json();
+            const migrated = await migrateLocalToFirestore(localTasks);
+            if (migrated) {
+              const freshTasks = await getClientTasks();
+              setTasks(freshTasks || []);
+            } else {
+              setTasks(clientTasks);
+            }
+          } else {
+            setTasks(clientTasks);
+          }
+        } else {
+          setTasks([]);
+        }
+      } else {
+        // Load tasks from local server DB
+        const tasksRes = await fetch('/api/tasks');
+        if (!tasksRes.ok) throw new Error('Error al cargar las actividades');
+        const tasksData = await tasksRes.json();
+        setTasks(tasksData);
+      }
 
       // Load backup info
       const backupRes = await fetch('/api/backup');
@@ -132,54 +162,139 @@ export default function App() {
     const todayStr = new Date().toISOString().split('T')[0];
     const taskDate = parsed.date || todayStr;
 
-    const payload = {
-      date: taskDate,
-      status: 'Reportado',
-      type: parsed.type || 'Sys',
-      category: parsed.category || 'Otr',
-      description: parsed.description || rawText,
-      duration: parsed.duration || '1 hr',
-      rawText: rawText,
-      userInitials: userInitials,
-    };
+    const initials = userInitials.trim().toUpperCase().slice(0, 4);
 
-    try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error('Error al registrar la actividad');
-      const data = await res.json();
-      
-      // Update local task list
-      setTasks(prev => [...prev, data.task]);
-      setIsQuickCaptureOpen(false); // Hide window as per prompt
-
-      // Refresh backup list
-      const backupRes = await fetch('/api/backup');
-      if (backupRes.ok) {
-        setBackupInfo(await backupRes.json());
+    if (isFirebaseConfigured()) {
+      // Calculate prefix and next sequence on the client
+      const dateParts = taskDate.split("-");
+      if (dateParts.length !== 3) {
+        alert("Formato de fecha inválido");
+        return;
       }
-    } catch (e) {
-      alert('Error: No se pudo guardar la actividad');
-      console.error(e);
+      const year = dateParts[0];
+      const month = dateParts[1];
+      const day = dateParts[2];
+      const ddmmaaaa = `${day}${month}${year}`;
+      const prefix = `T-${ddmmaaaa}-${initials}`;
+
+      const dailyTasks = tasks.filter(t => t.id.startsWith(prefix));
+      let nextSeq = 1;
+      if (dailyTasks.length > 0) {
+        const seqNumbers = dailyTasks.map(t => {
+          const parts = t.id.split("-");
+          const lastPart = parts[parts.length - 1];
+          const numberStr = lastPart.slice(initials.length);
+          const parsedNum = parseInt(numberStr, 10);
+          return isNaN(parsedNum) ? 0 : parsedNum;
+        });
+        nextSeq = Math.max(...seqNumbers) + 1;
+      }
+
+      const seqStr = nextSeq.toString().padStart(2, "0");
+      const generatedId = `${prefix}${seqStr}`;
+      const now = new Date();
+      const timeCreated = now.toTimeString().split(" ")[0];
+
+      const newTask: Task = {
+        id: generatedId,
+        date: taskDate,
+        timeCreated,
+        type: parsed.type || 'Sys',
+        category: parsed.category || 'Otr',
+        description: parsed.description || rawText,
+        duration: parsed.duration || '1 hr',
+        rawText,
+        userInitials: initials,
+      };
+
+      try {
+        await saveClientTask(newTask);
+        setTasks(prev => [...prev, newTask]);
+        setIsQuickCaptureOpen(false);
+
+        // Optional: notify the server to make a local backup of this list
+        fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newTask),
+        }).catch(err => console.warn("Background server update failed, but Firebase saved successfully:", err));
+
+      } catch (error) {
+        alert("Error al guardar en Firestore de Firebase.");
+        console.error(error);
+      }
+    } else {
+      const payload = {
+        date: taskDate,
+        status: 'Reportado',
+        type: parsed.type || 'Sys',
+        category: parsed.category || 'Otr',
+        description: parsed.description || rawText,
+        duration: parsed.duration || '1 hr',
+        rawText: rawText,
+        userInitials: userInitials,
+      };
+
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error('Error al registrar la actividad');
+        const data = await res.json();
+        
+        // Update local task list
+        setTasks(prev => [...prev, data.task]);
+        setIsQuickCaptureOpen(false); // Hide window as per prompt
+
+        // Refresh backup list
+        const backupRes = await fetch('/api/backup');
+        if (backupRes.ok) {
+          setBackupInfo(await backupRes.json());
+        }
+      } catch (e) {
+        alert('Error: No se pudo guardar la actividad');
+        console.error(e);
+      }
     }
   };
 
   // Update a task (edit or change status)
   const handleUpdateTask = async (id: string, updatedFields: Partial<Task>) => {
     try {
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedFields),
-      });
-      if (!res.ok) throw new Error('Error al actualizar');
-      const data = await res.json();
+      const targetTask = tasks.find(t => t.id === id);
+      if (!targetTask) return;
 
-      setTasks(prev => prev.map(t => t.id === id ? data.task : t));
+      const updatedTask = {
+        ...targetTask,
+        ...updatedFields,
+        id, // Ensure ID is stable
+      };
+
+      if (isFirebaseConfigured()) {
+        await saveClientTask(updatedTask);
+        setTasks(prev => prev.map(t => t.id === id ? updatedTask : t));
+
+        // Optional: keep backend in sync
+        fetch(`/api/tasks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedFields),
+        }).catch(e => console.warn("Backend update sync warning:", e));
+
+      } else {
+        const res = await fetch(`/api/tasks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedFields),
+        });
+        if (!res.ok) throw new Error('Error al actualizar');
+        const data = await res.json();
+
+        setTasks(prev => prev.map(t => t.id === id ? data.task : t));
+      }
     } catch (e) {
       console.error(e);
       alert('Error al actualizar la actividad');
@@ -189,16 +304,27 @@ export default function App() {
   // Delete a task
   const handleDeleteTask = async (id: string) => {
     try {
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Error al eliminar');
-      setTasks(prev => prev.filter(t => t.id !== id));
-      
-      // Refresh backup list
-      const backupRes = await fetch('/api/backup');
-      if (backupRes.ok) {
-        setBackupInfo(await backupRes.json());
+      if (isFirebaseConfigured()) {
+        await deleteClientTask(id);
+        setTasks(prev => prev.filter(t => t.id !== id));
+
+        // Optional: keep backend in sync
+        fetch(`/api/tasks/${id}`, {
+          method: 'DELETE',
+        }).catch(e => console.warn("Backend delete sync warning:", e));
+
+      } else {
+        const res = await fetch(`/api/tasks/${id}`, {
+          method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Error al eliminar');
+        setTasks(prev => prev.filter(t => t.id !== id));
+        
+        // Refresh backup list
+        const backupRes = await fetch('/api/backup');
+        if (backupRes.ok) {
+          setBackupInfo(await backupRes.json());
+        }
       }
     } catch (e) {
       console.error(e);
@@ -214,10 +340,15 @@ export default function App() {
     endDate?: string;
     userInitials?: string;
   }) => {
+    const payload: any = { ...exportParams };
+    if (isFirebaseConfigured()) {
+      payload.tasks = tasks;
+    }
+
     const res = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(exportParams),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error('Error en exportación');
     const data = await res.json();
@@ -427,6 +558,14 @@ export default function App() {
                 <span className="text-slate-300 font-bold">{tasks.length} filas</span>
               </div>
               <div className="flex items-center justify-between">
+                <span>Tipo Almacenamiento:</span>
+                {isFirebaseConfigured() ? (
+                  <span className="text-emerald-400 font-bold">Cloud (Firebase)</span>
+                ) : (
+                  <span className="text-amber-400 font-bold">Local JSON</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
                 <span>Ruta local:</span>
                 <span className="text-slate-300 truncate max-w-[100px]" title={config.dataDir}>{config.dataDir}</span>
               </div>
@@ -436,19 +575,114 @@ export default function App() {
           {/* Right Main Panel Container */}
           <main className="flex-1 p-4 sm:p-6 bg-slate-50 overflow-y-auto">
             {globalError && (
-              <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-4 text-xs text-rose-800 flex gap-2.5 items-start">
-                <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-bold">Error de sincronización con almacenamiento</h4>
-                  <p className="mt-1">{globalError}</p>
-                  <button 
-                    onClick={loadAllData}
-                    className="mt-2 text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded font-bold cursor-pointer"
-                  >
-                    Reintentar conexión
-                  </button>
-                </div>
-              </div>
+              (() => {
+                const isPermissionError = globalError.toLowerCase().includes('permission') || globalError.toLowerCase().includes('insufficient');
+                if (isPermissionError) {
+                  return (
+                    <div className="bg-amber-50 border border-amber-300 rounded-xl p-5 mb-6 text-xs text-slate-800 shadow-sm">
+                      <div className="flex gap-3 items-start">
+                        <div className="p-2 bg-amber-500/10 border border-amber-500/25 rounded-lg shrink-0 text-amber-600">
+                          <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-3 flex-1">
+                          <div>
+                            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                              ⚠️ Error de Permisos en Firebase (Reglas de Seguridad)
+                            </h4>
+                            <p className="mt-1 text-slate-600 leading-relaxed">
+                              Tu conexión con Firebase es correcta, pero la base de datos de Firestore en tu proyecto <span className="font-semibold font-mono text-slate-800">activity-logger-c7822</span> tiene las reglas de acceso bloqueadas ("Locked mode"), impidiendo leer o escribir datos.
+                            </p>
+                          </div>
+
+                          <div className="bg-[#111317] text-slate-300 rounded-lg p-4 border border-slate-800 space-y-3">
+                            <span className="font-bold text-slate-100 block text-[11px] uppercase tracking-wider text-amber-400 font-mono">
+                              Sigue estos pasos rápidos para solucionarlo:
+                            </span>
+                            <ol className="list-decimal pl-4 space-y-2 text-slate-400 text-[11px] leading-relaxed">
+                              <li>
+                                Abre tu consola de Firestore haciendo clic aquí:{' '}
+                                <a 
+                                  href="https://console.firebase.google.com/project/activity-logger-c7822/firestore" 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="text-blue-400 hover:underline inline-flex items-center gap-0.5 font-bold"
+                                >
+                                  Consola de Firestore <ExternalLink className="w-3 h-3 inline" />
+                                </a>
+                              </li>
+                              <li>
+                                Haz clic en la pestaña <strong className="text-slate-200 font-sans">"Rules" (Reglas)</strong> en la barra superior.
+                              </li>
+                              <li>
+                                Reemplaza el texto de las reglas por las siguientes para habilitar el acceso público para tu bitácora personal:
+                                <pre className="bg-slate-950 border border-slate-800 rounded p-2.5 mt-1.5 font-mono text-[10px] text-emerald-400 overflow-x-auto select-all leading-normal">
+{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                                </pre>
+                              </li>
+                              <li>
+                                Haz clic en el botón azul <strong className="text-emerald-400 font-sans">"Publish" (Publicar)</strong> ubicado en la parte superior derecha.
+                              </li>
+                            </ol>
+                          </div>
+
+                          <div className="flex gap-3 pt-1 flex-wrap">
+                            <button 
+                              onClick={loadAllData}
+                              className="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin-slow" />
+                              Reintentar conexión ahora
+                            </button>
+                            <button 
+                              onClick={async () => {
+                                if (confirm("¿Deseas desconectar Firebase temporalmente de esta pestaña para usar el almacenamiento local?")) {
+                                  try {
+                                    const tasksRes = await fetch('/api/tasks');
+                                    if (tasksRes.ok) {
+                                      const data = await tasksRes.json();
+                                      setTasks(data);
+                                      setGlobalError(null);
+                                    }
+                                  } catch (err) {
+                                    alert("No se pudo cargar la base local.");
+                                  }
+                                }
+                              }}
+                              className="border border-slate-300 hover:bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer"
+                            >
+                              Usar base de datos local JSON temporalmente
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Default error display
+                return (
+                  <div className="bg-rose-50 border border-rose-200 rounded-lg p-4 mb-4 text-xs text-rose-800 flex gap-2.5 items-start">
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold">Error de sincronización con almacenamiento</h4>
+                      <p className="mt-1">{globalError}</p>
+                      <button 
+                        onClick={loadAllData}
+                        className="mt-2 text-[10px] bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded font-bold cursor-pointer"
+                      >
+                        Reintentar conexión
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
             )}
 
             {loading ? (
@@ -569,7 +803,11 @@ export default function App() {
         <div className="bg-slate-800 border-t border-slate-900 px-4 py-2 text-[11px] font-mono text-slate-400 flex items-center justify-between flex-wrap gap-2">
           <div>
             <span>Estatus General: </span>
-            <span className="text-emerald-400 font-bold animate-pulse">● LOCAL ONLINE</span>
+            {isFirebaseConfigured() ? (
+              <span className="text-emerald-400 font-bold animate-pulse">● CLOUD FIREBASE ONLINE</span>
+            ) : (
+              <span className="text-amber-400 font-bold animate-pulse">● LOCAL ACTIVE (FALLBACK)</span>
+            )}
           </div>
           <div>
             <span>Desarrollador: </span>

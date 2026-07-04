@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppConfig } from '../types';
-import { Save, Folder, User, Sliders, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Save, Folder, User, Sliders, RefreshCw, AlertCircle, CheckCircle2, Cloud, CloudOff, HelpCircle, ExternalLink } from 'lucide-react';
+import { isFirebaseConfigured } from '../firebase';
 
 interface ConfigurationProps {
   config: AppConfig;
@@ -50,6 +51,8 @@ export default function Configuration({ config, onSaveConfig }: ConfigurationPro
     }
   };
 
+  const firebaseActive = isFirebaseConfigured();
+
   return (
     <div id="configuration-panel" className="bg-[#16181D] rounded-xl border border-[#2A2D35] shadow-sm p-6 max-w-xl mx-auto">
       <div className="flex items-center space-x-2 border-b border-[#2A2D35] pb-3 mb-5">
@@ -57,6 +60,78 @@ export default function Configuration({ config, onSaveConfig }: ConfigurationPro
         <h2 className="text-base font-bold tracking-tight text-slate-100 font-display">
           CONFIGURACIÓN DE LA APLICACIÓN
         </h2>
+      </div>
+
+      {/* Tarjeta Informativa de Firebase */}
+      <div className="mb-6 p-4 rounded-xl border bg-slate-950/60 transition-all">
+        <div className="flex items-start gap-3">
+          {firebaseActive ? (
+            <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30">
+              <Cloud className="w-5 h-5 text-emerald-400" />
+            </div>
+          ) : (
+            <div className="p-2 rounded-lg bg-amber-500/15 border border-amber-500/30">
+              <CloudOff className="w-5 h-5 text-amber-400" />
+            </div>
+          )}
+          
+          <div className="flex-1 space-y-1">
+            <h3 className="text-xs font-bold font-mono tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+              Estatus del Almacenamiento: 
+              {firebaseActive ? (
+                <span className="text-emerald-400">Firebase Cloud Conectado</span>
+              ) : (
+                <span className="text-amber-400">Servidor Local (Modo Fallback)</span>
+              )}
+            </h3>
+            
+            {firebaseActive ? (
+              <div className="text-xs text-slate-400 space-y-2 leading-relaxed pt-1.5">
+                <p>
+                  ¡La conexión directa del navegador a tu base de datos <span className="text-slate-100 font-semibold font-mono">activity-logger-c7822</span> en la nube está activa! Los datos se sincronizan directamente sin intermediarios de costo.
+                </p>
+                <div className="p-3 bg-[#111317] border border-[#2A2D35] rounded-lg space-y-1.5">
+                  <span className="font-bold text-slate-200 block text-[11px] flex items-center gap-1 text-emerald-400">
+                    <HelpCircle className="w-3.5 h-3.5" /> ¿Por qué mi consola de Firebase está vacía?
+                  </span>
+                  <ul className="list-decimal pl-4 space-y-1 text-slate-400 text-[11px]">
+                    <li>
+                      <span className="font-bold text-slate-300">Debes crear la base de datos Firestore:</span> Ve a tu <a href="https://console.firebase.google.com/project/activity-logger-c7822/firestore" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline inline-flex items-center gap-0.5 font-bold">Consola de Firebase <ExternalLink className="w-3 h-3 inline" /></a>, haz clic en <strong>Firestore Database</strong> y luego en <strong>Crear base de datos</strong>. Configúrala en "Modo de prueba".
+                    </li>
+                    <li>
+                      <span className="font-bold text-slate-300">Agrega tu primer registro:</span> Firestore no muestra colecciones que estén totalmente vacías. Agrega una actividad usando el botón <strong>"Nueva Captura Rápida"</strong> de arriba (o con el atajo de teclado). Al instante verás crearse la colección <code className="bg-slate-900 px-1 py-0.5 rounded text-rose-400 font-mono text-[10px]">tasks</code>.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400 space-y-2 leading-relaxed pt-1.5">
+                <p>
+                  Toda tu información se guarda de forma segura y local en <code className="bg-slate-900 px-1 py-0.5 rounded text-blue-400 font-mono text-[10px]">activities.json</code> dentro de este contenedor.
+                </p>
+                <div className="p-3 bg-[#111317] border border-amber-500/20 rounded-lg space-y-1.5">
+                  <span className="font-bold text-slate-200 block text-[11px] text-amber-400">
+                    Sigue estos pasos para conectar Firebase en la nube (100% Gratis):
+                  </span>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    Ingresa en el menú <strong>Settings (Configuración)</strong> de Google AI Studio (arriba a la derecha) e introduce estas variables de entorno en el panel secreto:
+                  </p>
+                  <ul className="list-disc pl-4 space-y-0.5 text-slate-400 text-[11px] font-mono">
+                    <li><strong className="text-slate-300 font-sans">VITE_FIREBASE_API_KEY</strong>: (Tu API Key real)</li>
+                    <li><strong className="text-slate-300 font-sans">VITE_FIREBASE_AUTH_DOMAIN</strong>: <span className="opacity-70">activity-logger-c7822.firebaseapp.com</span></li>
+                    <li><strong className="text-slate-300 font-sans">VITE_FIREBASE_PROJECT_ID</strong>: <span className="opacity-70">activity-logger-c7822</span></li>
+                    <li><strong className="text-slate-300 font-sans">VITE_FIREBASE_STORAGE_BUCKET</strong>: <span className="opacity-70">activity-logger-c7822.firebasestorage.app</span></li>
+                    <li><strong className="text-slate-300 font-sans">VITE_FIREBASE_MESSAGING_SENDER_ID</strong>: <span className="opacity-70">524745483405</span></li>
+                    <li><strong className="text-slate-300 font-sans">VITE_FIREBASE_APP_ID</strong>: <span className="opacity-70">1:524745483405:web:...</span></li>
+                  </ul>
+                  <p className="text-[10px] text-slate-500 pt-1">
+                    *Al guardarlas, la app sincronizará tu historial existente a la nube de Firebase de forma automática.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
