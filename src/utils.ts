@@ -1,22 +1,133 @@
 // Mapping of Types
 export const TYPES_MAP: Record<string, string> = {
+  // Sistemas
   Sys: 'Sistemas',
+  SYS: 'Sistemas',
+  sys: 'Sistemas',
+  Sistema: 'Sistemas',
+  SISTEMA: 'Sistemas',
+  sistema: 'Sistemas',
+  Sistemas: 'Sistemas',
+  SISTEMAS: 'Sistemas',
+  sistemas: 'Sistemas',
+
+  // Comercial
   Com: 'Comercial',
+  COM: 'Comercial',
+  com: 'Comercial',
+  Comercial: 'Comercial',
+  COMERCIAL: 'Comercial',
+  comercial: 'Comercial',
+
+  // Operaciones
   Op: 'Operaciones',
+  OP: 'Operaciones',
+  op: 'Operaciones',
+  Operacion: 'Operaciones',
+  OPERACION: 'Operaciones',
+  operacion: 'Operaciones',
+  Operación: 'Operaciones',
+  OPERACIÓN: 'Operaciones',
+  operación: 'Operaciones',
+  Operaciones: 'Operaciones',
+  OPERACIONES: 'Operaciones',
+  operaciones: 'Operaciones',
+
+  // Marketing
   MKT: 'Marketing',
+  Mkt: 'Marketing',
+  mkt: 'Marketing',
+  Marketing: 'Marketing',
+  MARKETING: 'Marketing',
+  marketing: 'Marketing',
+
+  // Abasto
   Ab: 'Abasto',
+  AB: 'Abasto',
+  ab: 'Abasto',
+  Abasto: 'Abasto',
+  ABASTO: 'Abasto',
+  abasto: 'Abasto',
+
+  // Soporte
   Sop: 'Soporte',
+  SOP: 'Soporte',
+  sop: 'Soporte',
+  Soporte: 'Soporte',
+  SOPORTE: 'Soporte',
+  soporte: 'Soporte',
 };
 
 // Mapping of Categories
 export const CATEGORIES_MAP: Record<string, string> = {
+  // Bug
   B: 'Bug',
+  b: 'Bug',
+  Bug: 'Bug',
+  BUG: 'Bug',
+  bug: 'Bug',
+
+  // Deuda Técnica
   DTec: 'Deuda Técnica',
+  DTEC: 'Deuda Técnica',
+  dtec: 'Deuda Técnica',
+  Dtec: 'Deuda Técnica',
+  'Deuda Técnica': 'Deuda Técnica',
+  'DEUDA TÉCNICA': 'Deuda Técnica',
+  'deuda técnica': 'Deuda Técnica',
+  'Deuda Tecnica': 'Deuda Técnica',
+  'DEUDA TECNICA': 'Deuda Técnica',
+  'deuda tecnica': 'Deuda Técnica',
+
+  // Soporte Operativo
   SOp: 'Soporte Operativo',
+  SOP: 'Soporte Operativo',
+  sop: 'Soporte Operativo',
+  Sop: 'Soporte Operativo',
+  'Soporte Operativo': 'Soporte Operativo',
+  'SOPORTE OPERATIVO': 'Soporte Operativo',
+  'soporte operativo': 'Soporte Operativo',
+
+  // Uso Incorrecto
   UInc: 'Uso Incorrecto',
+  UINC: 'Uso Incorrecto',
+  uinc: 'Uso Incorrecto',
+  Uinc: 'Uso Incorrecto',
+  'Uso Incorrecto': 'Uso Incorrecto',
+  'USO INCORRECTO': 'Uso Incorrecto',
+  'uso incorrecto': 'Uso Incorrecto',
+
+  // Requerimiento de Negocio
   RNeg: 'Requerimiento de Negocio',
+  RNEG: 'Requerimiento de Negocio',
+  rneg: 'Requerimiento de Negocio',
+  Rneg: 'Requerimiento de Negocio',
+  Req: 'Requerimiento de Negocio',
+  REQ: 'Requerimiento de Negocio',
+  req: 'Requerimiento de Negocio',
+  Requerimiento: 'Requerimiento de Negocio',
+  REQUERIMIENTO: 'Requerimiento de Negocio',
+  requerimiento: 'Requerimiento de Negocio',
+  'Requerimiento de Negocio': 'Requerimiento de Negocio',
+  'REQUERIMIENTO DE NEGOCIO': 'Requerimiento de Negocio',
+  'requerimiento de negocio': 'Requerimiento de Negocio',
+
+  // Duda Funcional
   DFunc: 'Duda Funcional',
+  DFUNC: 'Duda Funcional',
+  dfunc: 'Duda Funcional',
+  Dfunc: 'Duda Funcional',
+  'Duda Funcional': 'Duda Funcional',
+  'DUDA FUNCIONAL': 'Duda Funcional',
+  'duda funcional': 'Duda Funcional',
+
+  // Otro
   Otr: 'Otro',
+  OTR: 'Otro',
+  otr: 'Otro',
+  Otro: 'Otro',
+  OTRO: 'Otro',
+  otro: 'Otro',
 };
 
 // Available status values
