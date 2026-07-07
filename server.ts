@@ -271,37 +271,116 @@ app.post("/api/export", async (req, res) => {
     });
   }
 
-  // Map translations for full names in export as requested
   const typeLabels: Record<string, string> = {
-    Sys: "Sistemas",
-    Com: "Comercial",
-    Op: "Operaciones",
-    MKT: "Marketing",
-    Ab: "Abasto",
-    Sop: "Soporte"
+    // Sistemas
+    "Sys": "Sistemas",
+    "SYS": "Sistemas",
+    "sys": "Sistemas",
+    "Sistema": "Sistemas",
+    "Sistemas": "Sistemas",
+    "sistema": "Sistemas",
+    "sistemas": "Sistemas",
+
+    // Comercial
+    "Com": "Comercial",
+    "COM": "Comercial",
+    "com": "Comercial",
+    "Comercial": "Comercial",
+    "comercial": "Comercial",
+
+    // Operaciones
+    "Op": "Operaciones",
+    "OP": "Operaciones",
+    "op": "Operaciones",
+    "Operacion": "Operaciones",
+    "Operación": "Operaciones",
+    "Operaciones": "Operaciones",
+    "operacion": "Operaciones",
+    "operación": "Operaciones",
+    "operaciones": "Operaciones",
+
+    // Marketing
+    "MKT": "Marketing",
+    "Mkt": "Marketing",
+    "mkt": "Marketing",
+    "Marketing": "Marketing",
+    "marketing": "Marketing",
+
+    // Abasto
+    "Ab": "Abasto",
+    "AB": "Abasto",
+    "ab": "Abasto",
+    "Abasto": "Abasto",
+    "abasto": "Abasto",
+
+    // Soporte
+    "Sop": "Soporte",
+    "SOP": "Soporte",
+    "sop": "Soporte",
+    "Soporte": "Soporte",
+    "soporte": "Soporte"
   };
 
   const categoryLabels: Record<string, string> = {
-    B: "Bug",
-    DTec: "Deuda Técnica",
-    SOp: "Soporte Operativo",
-    UInc: "Uso Incorrecto",
-    RNeg: "Requerimiento de Negocio",
-    DFunc: "Duda Funcional",
-    Otr: "Otro"
+    // Bug
+    "B": "Bug",
+    "b": "Bug",
+    "Bug": "Bug",
+    "BUG": "Bug",
+    "bug": "Bug",
+
+    // Deuda Técnica
+    "DTec": "Deuda Técnica",
+    "DTEC": "Deuda Técnica",
+    "dtec": "Deuda Técnica",
+    "Deuda Tecnica": "Deuda Técnica",
+    "Deuda Técnica": "Deuda Técnica",
+    "deuda tecnica": "Deuda Técnica",
+    "deuda técnica": "Deuda Técnica",
+
+    // Soporte Operativo
+    "SOp": "Soporte Operativo",
+    "SOP": "Soporte Operativo",
+    "sop": "Soporte Operativo",
+    "Soporte Operativo": "Soporte Operativo",
+    "soporte operativo": "Soporte Operativo",
+
+    // Uso Incorrecto
+    "UInc": "Uso Incorrecto",
+    "UINC": "Uso Incorrecto",
+    "uinc": "Uso Incorrecto",
+    "Uso Incorrecto": "Uso Incorrecto",
+    "uso incorrecto": "Uso Incorrecto",
+
+    // Requerimiento de Negocio
+    "RNeg": "Requerimiento de Negocio",
+    "RNEG": "Requerimiento de Negocio",
+    "rneg": "Requerimiento de Negocio",
+    "Req": "Requerimiento de Negocio",
+    "REQ": "Requerimiento de Negocio",
+    "req": "Requerimiento de Negocio",
+    "Requerimiento": "Requerimiento de Negocio",
+    "Requerimiento de Negocio": "Requerimiento de Negocio",
+    "requerimiento de negocio": "Requerimiento de Negocio",
+
+    // Duda Funcional
+    "DFunc": "Duda Funcional",
+    "DFUNC": "Duda Funcional",
+    "dfunc": "Duda Funcional",
+    "Duda Funcional": "Duda Funcional",
+    "duda funcional": "Duda Funcional",
+
+    // Otro
+    "Otr": "Otro",
+    "OTR": "Otro",
+    "otr": "Otro",
+    "Otro": "Otro",
+    "OTRO": "Otro",
+    "otro": "Otro"
   };
 
   const initialsToFullName: Record<string, string> = {
-    MR: "Marcos Robles",
-    AA: "Andrés Alarcón",
-    JP: "Juan Pérez",
-    MG: "María Gómez",
-    LS: "Luis Sánchez",
-    FC: "Francisco Castro",
-    EC: "Eduardo Cruz",
-    GL: "Gabriela López",
-    DR: "Daniel Ramírez",
-    KV: "Karla Vargas",
+    XX: "Usuario"
   };
 
   // Build the export output string exactly as specified:
